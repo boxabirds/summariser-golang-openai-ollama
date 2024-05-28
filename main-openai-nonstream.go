@@ -1,12 +1,9 @@
-// Demo of how you can fix the seed with OpenAI and you'll get deterministic output.
-// this is only for a given system fingerprint
 package main
 
 import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"time"
@@ -19,19 +16,15 @@ func main() {
 	const NO_SEED = -1
 	inputFile := flag.String("input-file", "", "Path to the input text file")
 	inputText := flag.String("input-text", "", "Input text to summarize")
-	model := flag.String("model", "", "Model to use for the API")
+	model := flag.String("model", DEFAULT_OPENAI_MODEL, "Model to use for the API")
 	maxTokens := flag.Int("max-tokens", 200, "Maximum number of tokens in the summary")
 	var seed int
 	flag.IntVar(&seed, "seed", NO_SEED, "Seed for deterministic results (optional)")
 	flag.Parse()
 
-	var apiKey string
-	apiKey = os.Getenv("OPENAI_API_KEY")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		log.Fatal("OPENAI_API_KEY not found in environment")
-	}
-	if *model == "" {
-		*model = DEFAULT_OPENAI_MODEL
 	}
 
 	client := openai.NewClient(apiKey)
@@ -56,7 +49,6 @@ func main() {
 	req := openai.ChatCompletionRequest{
 		Model:       *model,
 		MaxTokens:   *maxTokens,
-		Stream:      true,
 		Temperature: 0.0,
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
@@ -70,32 +62,13 @@ func main() {
 	}
 
 	start := time.Now()
-	stream, err := client.CreateChatCompletionStream(ctx, req)
+	response, err := client.CreateChatCompletion(ctx, req)
 	if err != nil {
-		log.Fatalf("ChatCompletionStream error: %v\n", err)
+		log.Fatalf("ChatCompletion error: %v\n", err)
 	}
-	defer stream.Close()
 
-	fmt.Printf("Summary: \n")
-	var content string
-	var completionTokens int
-
-	for {
-		response, err := stream.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.Fatalf("Stream error: %v\n", err)
-		}
-		content += response.Choices[0].Delta.Content
-		fmt.Printf(response.Choices[0].Delta.Content)
-		completionTokens += len(response.Choices[0].Delta.Content)
-
-	}
+	fmt.Printf("Summary: \n%s\n", response.Choices[0].Message.Content)
 
 	elapsed := time.Since(start)
-	fmt.Printf("\n\nTokens generated: %d\n", completionTokens)
-	fmt.Printf("Output tokens per Second: %.2f/s\n", float64(completionTokens)/elapsed.Seconds())
 	fmt.Printf("Total Execution Time: %s\n", elapsed)
 }
