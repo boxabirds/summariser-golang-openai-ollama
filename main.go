@@ -37,6 +37,7 @@ func main() {
 		}
 		fmt.Printf("Using default OpenAI API server\n")
 	} else {
+		fmt.Printf("=== NOTE AS OF 28 May 2024 Ollama does not appear to use the seed to make output deterministic.===")
 		apiKey = OLLAMA_API_KEY
 		if *model == "" {
 			*model = DEFAULT_GEMMA_MODEL
